@@ -110,3 +110,139 @@ we have an important serial function `mandelbrotSerial`, so we can guess the
 value of $r$
 to be 0.9 (I guess). So no matter how many threads we create,
 we could not get a speedup better than 9.
+
+## Program 2
+
+This program is aimed at using SIMD. However, I have learned some basic ideas
+in CS61C.
+
+### Question 2.1
+
+```c++
+int clampedExpVectorHelper(float* values, int* exponents, float* output, int N) {
+  __cs149_vec_float x;
+  __cs149_vec_int y;
+  __cs149_vec_float result;
+  __cs149_vec_int zero = _cs149_vset_int(0);
+  __cs149_vec_int one = _cs149_vset_int(1);
+  __cs149_vec_float max = _cs149_vset_float(9.999999f);
+  __cs149_mask maskAll, maskIsExponentZero;
+  __cs149_mask maskIsNotExponentZero, loop, isExceedMax;
+
+  int i = 0 ;
+  for(;i + VECTOR_WIDTH <= N; i += VECTOR_WIDTH) {
+    maskAll = _cs149_init_ones();
+    isExceedMax = _cs149_init_ones(0);
+
+    result = _cs149_vset_float(0.0f);
+    _cs149_vload_int(y, exponents + i, maskAll);
+    _cs149_veq_int(maskIsExponentZero, y, zero, maskAll);
+    _cs149_vset_float(result, 1.f, maskIsExponentZero);
+
+    maskIsNotExponentZero = _cs149_mask_not(maskIsExponentZero);
+    _cs149_vload_float(x, values + i, maskIsNotExponentZero);
+    _cs149_vadd_float(result, result, x , maskIsNotExponentZero);
+    _cs149_vsub_int(y, y, one, maskIsNotExponentZero);
+    _cs149_vgt_int(loop, y, zero, maskIsNotExponentZero);
+    while(_cs149_cntbits(loop) != 0) {
+      _cs149_vmult_float(result, result, x , loop);
+      _cs149_vsub_int(y, y, one, loop);
+      _cs149_vgt_int(loop, y, zero, loop);
+    }
+    _cs149_vgt_float(isExceedMax, result, max, maskIsNotExponentZero);
+    _cs149_vset_float(result, 9.999999f, isExceedMax);
+
+    _cs149_vstore_float(output + i, result, maskAll);
+  }
+  return i;
+}
+
+void clampedExpVector(float* values, int* exponents, float* output, int N) {
+
+  int index = clampedExpVectorHelper(values, exponents, output, N);
+
+  if(index != N ) {
+    float valuesTemp[VECTOR_WIDTH] {};
+    int exponentsTemp[VECTOR_WIDTH] {};
+    float outputTemp[VECTOR_WIDTH] {};
+    for(int i = index; i < N; ++i) {
+      valuesTemp[i - index] = values[i];
+      exponentsTemp[i - index] = exponents[i];
+    }
+    clampedExpVectorHelper(valuesTemp, exponentsTemp, outputTemp, VECTOR_WIDTH);
+    for(int i = index ; i < N; ++i) {
+      output[i] = outputTemp[i - index];
+    }
+  }
+}
+```
+
+### Question 2.2
+
+When the vector width is 2:
+
+```txt
+Vector Width:              2
+Total Vector Instructions: 167727
+Vector Utilization:        77.3%
+Utilized Vector Lanes:     259325
+Total Vector Lanes:        335454
+```
+
+When the vector width is 4:
+
+```txt
+Vector Width:              4
+Total Vector Instructions: 97075
+Vector Utilization:        70.2%
+Utilized Vector Lanes:     272541
+Total Vector Lanes:        388300
+```
+
+When the vector width is 8:
+
+```txt
+Vector Width:              8
+Total Vector Instructions: 52877
+Vector Utilization:        66.5%
+Utilized Vector Lanes:     281229
+Total Vector Lanes:        423016
+```
+
+When the vector width is 16:
+
+```txt
+Vector Width:              16
+Total Vector Instructions: 27592
+Vector Utilization:        64.8%
+Utilized Vector Lanes:     285861
+Total Vector Lanes:        441472
+```
+
+As you can see, the vector utilization decreases, the reason I think
+is that the branch we make in each vector, when the vector size becomes
+bigger, the branch is more likely.
+
+### Question 2.3
+
+It's easy.
+
+```c++
+float arraySumVector(float* values, int N) {
+  float value[VECTOR_WIDTH] {};
+  __cs149_vec_float sum = _cs149_vset_float(0.0f);
+  __cs149_vec_float num;
+  __cs149_mask maskAll = _cs149_init_ones();
+  for (int i=0; i<N; i+=VECTOR_WIDTH) {
+    _cs149_vload_float(num, values + i, maskAll);
+    _cs149_vadd_float(sum, sum, num, maskAll);
+  }
+  int number = VECTOR_WIDTH;
+  while (number /= 2) {
+    _cs149_hadd_float(sum, sum);
+    _cs149_interleave_float(sum, sum);
+  }
+  _cs149_vstore_float(value, sum, maskAll);
+  return value[0];
+}
+```

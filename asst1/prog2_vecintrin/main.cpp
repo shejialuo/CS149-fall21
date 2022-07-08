@@ -240,6 +240,44 @@ void clampedExpSerial(float* values, int* exponents, float* output, int N) {
   }
 }
 
+int clampedExpVectorHelper(float* values, int* exponents, float* output, int N) {
+  __cs149_vec_float x;
+  __cs149_vec_int y;
+  __cs149_vec_float result;
+  __cs149_vec_int zero = _cs149_vset_int(0);
+  __cs149_vec_int one = _cs149_vset_int(1);
+  __cs149_vec_float max = _cs149_vset_float(9.999999f);
+  __cs149_mask maskAll, maskIsExponentZero;
+  __cs149_mask maskIsNotExponentZero, loop, isExceedMax;
+
+  int i = 0 ;
+  for(;i + VECTOR_WIDTH <= N; i += VECTOR_WIDTH) {
+    maskAll = _cs149_init_ones();
+    isExceedMax = _cs149_init_ones(0);
+
+    result = _cs149_vset_float(0.0f);
+    _cs149_vload_int(y, exponents + i, maskAll);
+    _cs149_veq_int(maskIsExponentZero, y, zero, maskAll);
+    _cs149_vset_float(result, 1.f, maskIsExponentZero);
+
+    maskIsNotExponentZero = _cs149_mask_not(maskIsExponentZero);
+    _cs149_vload_float(x, values + i, maskIsNotExponentZero);
+    _cs149_vadd_float(result, result, x , maskIsNotExponentZero);
+    _cs149_vsub_int(y, y, one, maskIsNotExponentZero);
+    _cs149_vgt_int(loop, y, zero, maskIsNotExponentZero);
+    while(_cs149_cntbits(loop) != 0) {
+      _cs149_vmult_float(result, result, x , loop);
+      _cs149_vsub_int(y, y, one, loop);
+      _cs149_vgt_int(loop, y, zero, loop);
+    }
+    _cs149_vgt_float(isExceedMax, result, max, maskIsNotExponentZero);
+    _cs149_vset_float(result, 9.999999f, isExceedMax);
+
+    _cs149_vstore_float(output + i, result, maskAll);
+  }
+  return i;
+}
+
 void clampedExpVector(float* values, int* exponents, float* output, int N) {
 
   //
@@ -249,7 +287,27 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
-  
+  int index = clampedExpVectorHelper(values, exponents, output, N);
+  /*
+    * The easiest way to handle the corner case is to call the
+    * serial form, however, we should make a temp array to hold
+    * the value and use `clampedExpVectorHelper` to do parallel
+    * computing.
+  */
+
+  if(index != N ) {
+    float valuesTemp[VECTOR_WIDTH] {};
+    int exponentsTemp[VECTOR_WIDTH] {};
+    float outputTemp[VECTOR_WIDTH] {};
+    for(int i = index; i < N; ++i) {
+      valuesTemp[i - index] = values[i];
+      exponentsTemp[i - index] = exponents[i];
+    }
+    clampedExpVectorHelper(valuesTemp, exponentsTemp, outputTemp, VECTOR_WIDTH);
+    for(int i = index ; i < N; ++i) {
+      output[i] = outputTemp[i - index];
+    }
+  }
 }
 
 // returns the sum of all elements in values
@@ -266,15 +324,25 @@ float arraySumSerial(float* values, int N) {
 // You can assume N is a multiple of VECTOR_WIDTH
 // You can assume VECTOR_WIDTH is a power of 2
 float arraySumVector(float* values, int N) {
-  
+
   //
   // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
-  
+
+  float value[VECTOR_WIDTH] {};
+  __cs149_vec_float sum = _cs149_vset_float(0.0f);
+  __cs149_vec_float num;
+  __cs149_mask maskAll = _cs149_init_ones();
   for (int i=0; i<N; i+=VECTOR_WIDTH) {
-
+    _cs149_vload_float(num, values + i, maskAll);
+    _cs149_vadd_float(sum, sum, num, maskAll);
   }
-
-  return 0.0;
+  int number = VECTOR_WIDTH;
+  while (number /= 2) {
+    _cs149_hadd_float(sum, sum);
+    _cs149_interleave_float(sum, sum);
+  }
+  _cs149_vstore_float(value, sum, maskAll);
+  return value[0];
 }
 

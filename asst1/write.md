@@ -405,3 +405,32 @@ for (unsigned int i=0; i<N; i++) {
                                 (0.93x speedup from ISPC)
                                 (8.11x speedup from task ISPC)
 ```
+
+## Program 5
+
+### Question 5.1
+
+```txt
+# ./saxpy
+[saxpy ispc]:           [21.670] ms     [13.753] GB/s   [1.846] GFLOPS
+[saxpy task ispc]:      [22.282] ms     [13.375] GB/s   [1.795] GFLOPS
+                                (0.97x speedup from use of tasks)
+```
+
+I think in this question, we should use less tasks, due to the cache line
+the CPU writes, if there are many tasks, we would always meet a cache miss.
+So I change the task to be 2.
+
+However, when I change the task to be 2, there is no speedup improvement, so
+the reason maybe the memory bandwidth.
+
+```txt
+[saxpy ispc]:           [21.400] ms     [13.927] GB/s   [1.869] GFLOPS
+[saxpy task ispc]:      [23.430] ms     [12.720] GB/s   [1.707] GFLOPS
+                                (0.91x speedup from use of tasks)
+```
+
+### Question 5.2
+
+The reason is in Question 5.1. Put the content in the cache line and flash
+the cache line.

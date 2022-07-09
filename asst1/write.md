@@ -353,3 +353,55 @@ Tasks are independent work that can be executed with different cores.
 Contrary to threads, they do not have execution context and they are
 only pieces of work. The ISPC compiler takes the tasks and launches
 however many threads it decides.
+
+## Program 4
+
+### Question 4.1
+
+```txt
+# ./sqrt
+[sqrt serial]:          [1747.862] ms
+[sqrt ispc]:            [366.439] ms
+[sqrt task ispc]:       [38.224] ms
+                                (4.77x speedup from ISPC)
+                                (45.73x speedup from task ISPC)
+```
+
+### Question 4.2
+
+For this question, we should make the sure that the load is balanced
+and time-consuming.
+
+```c++
+for (unsigned int i=0; i<N; i++) {
+  values[i] = 2.99f;
+}
+```
+
+```txt
+# ./sqrt
+[sqrt serial]:          [2617.087] ms
+[sqrt ispc]:            [396.478] ms
+[sqrt task ispc]:       [45.276] ms
+                                (6.60x speedup from ISPC)
+                                (57.80x speedup from task ISPC)
+```
+
+### Question 4.3
+
+For this question, we should make the sure that the load is imbalanced.
+
+```c++
+for (unsigned int i=0; i<N; i++) {
+  i % 8 ? values[i] = 1.0f : values[i] = 2.99f;
+}
+```
+
+```txt
+# ./sqrt
+[sqrt serial]:          [132.275] ms
+[sqrt ispc]:            [142.305] ms
+[sqrt task ispc]:       [16.307] ms
+                                (0.93x speedup from ISPC)
+                                (8.11x speedup from task ISPC)
+```

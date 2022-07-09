@@ -246,3 +246,110 @@ float arraySumVector(float* values, int N) {
   return value[0];
 }
 ```
+
+## Program 3
+
+### Part I
+
+We should first understand the code `mandelbrot_ispc`.
+
+```ispc
+export void mandelbrot_ispc(uniform float x0, uniform float y0,
+                            uniform float x1, uniform float y1,
+                            uniform int width, uniform int height,
+                            uniform int maxIterations,
+                            uniform int output[])
+{
+    float dx = (x1 - x0) / width;
+    float dy = (y1 - y0) / height;
+
+    foreach (j = 0 ... height, i = 0 ... width) {
+            float x = x0 + i * dx;
+            float y = y0 + j * dy;
+
+            int index = j * width + i;
+            output[index] = mandel(x, y, maxIterations);
+    }
+}
+```
+
+The idea here is obvious. We could split the graph into many
+$1 \times 1$ squares. And use 8-vector to solve. So the speedup
+should be 8. However the result is below.
+
+```txt
+#  ./mandelbrot_ispc -v 1
+[mandelbrot serial]:            [175.258] ms
+Wrote image file mandelbrot-serial.ppm
+[mandelbrot ispc]:              [30.405] ms
+Wrote image file mandelbrot-ispc.ppm
+                                (5.76x speedup from ISPC)
+#  ./mandelbrot_ispc -v 2
+[mandelbrot serial]:            [246.953] ms
+Wrote image file mandelbrot-serial.ppm
+[mandelbrot ispc]:              [50.832] ms
+Wrote image file mandelbrot-ispc.ppm
+                                (4.86x speedup from ISPC)
+```
+
+Due to the reason that the ISPC compiler maps gangs of program
+instances to SIMD instructions executed on a single core. So
+we can know that the work is imbalance between each job.
+
+### Part II
+
+#### Question 3.1
+
+```txt
+# ./mandelbrot_ispc -v 2 -t
+[mandelbrot serial]:            [246.911] ms
+Wrote image file mandelbrot-serial.ppm
+[mandelbrot ispc]:              [50.675] ms
+Wrote image file mandelbrot-ispc.ppm
+[mandelbrot multicore ispc]:    [30.390] ms
+Wrote image file mandelbrot-task-ispc.ppm
+                                (4.87x speedup from ISPC)
+                                (8.12x speedup from task ISPC)
+```
+
+#### Question 3.2
+
+We first look at `mandelbrot_ispc_task`, the idea of this function
+is easy, the whole procession is like `mandelbrot_ispc`. But with
+different tasks handle different areas.
+
+```ispc
+task void mandelbrot_ispc_task(uniform float x0, uniform float y0,
+                               uniform float x1, uniform float y1,
+                               uniform int width, uniform int height,
+                               uniform int rowsPerTask,
+                               uniform int maxIterations,
+                               uniform int output[])
+{
+
+    // taskIndex is an ISPC built-in
+
+    uniform int ystart = taskIndex * rowsPerTask;
+    uniform int yend = ystart + rowsPerTask;
+
+    uniform float dx = (x1 - x0) / width;
+    uniform float dy = (y1 - y0) / height;
+
+    foreach (j = ystart ... yend, i = 0 ... width) {
+            float x = x0 + i * dx;
+            float y = y0 + j * dy;
+
+            int index = j * width + i;
+            output[index] = mandel(x, y, maxIterations);
+    }
+}
+```
+
+Well, the answer is the max thread you CPU could support.
+
+#### Question 3.3
+
+Tasks are independent work that can be executed with different cores.
+Contrary to threads, they do not have execution context and they are
+only pieces of work. The ISPC compiler takes the tasks and launches
+however many threads it decides.

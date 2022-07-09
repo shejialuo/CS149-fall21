@@ -28,7 +28,7 @@
    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
    LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /*
@@ -56,7 +56,7 @@
   #define ISPC_USE_GCD
 #endif
 
-#define DBG(x) 
+#define DBG(x)
 
 #ifdef ISPC_IS_WINDOWS
   #define NOMINMAX
@@ -79,7 +79,8 @@
   #include <sys/types.h>
   #include <sys/stat.h>
   #include <sys/param.h>
-  #include <sys/sysctl.h>
+  /*sysctl.h is dreprecated*/
+  // #include <sys/sysctl.h>
   #include <vector>
   #include <algorithm>
 #endif // ISPC_USE_PTHREADS
@@ -160,10 +161,10 @@ private:
 };
 
 
-inline TaskGroupBase::TaskGroupBase() { 
-    nextTaskInfoIndex = 0; 
+inline TaskGroupBase::TaskGroupBase() {
+    nextTaskInfoIndex = 0;
 
-    curMemBuffer = 0; 
+    curMemBuffer = 0;
     curMemBufferOffset = 0;
     memBuffers[0] = mem;
     memBufferSize[0] = sizeof(mem) / sizeof(mem[0]);
@@ -187,8 +188,8 @@ inline TaskGroupBase::~TaskGroupBase() {
 
 inline void
 TaskGroupBase::Reset() {
-    nextTaskInfoIndex = 0; 
-    curMemBuffer = 0; 
+    nextTaskInfoIndex = 0;
+    curMemBuffer = 0;
     curMemBufferOffset = 0;
 }
 
@@ -291,7 +292,7 @@ lAtomicCompareAndSwapPointer(void **v, void *newValue, void *oldValue) {
 
 
 #ifndef ISPC_IS_WINDOWS
-static int32_t 
+static int32_t
 lAtomicCompareAndSwap32(volatile int32_t *v, int32_t newValue, int32_t oldValue) {
     int32_t result;
     __asm__ __volatile__("lock\ncmpxchgl %2,%1"
@@ -406,7 +407,7 @@ lRunTask(void *ti) {
     int threadCount = 1;
 
     // Actually run the task
-    taskInfo->func(taskInfo->data, threadIndex, threadCount, 
+    taskInfo->func(taskInfo->data, threadIndex, threadCount,
                    taskInfo->taskIndex, taskInfo->taskCount);
 }
 
@@ -441,8 +442,8 @@ InitTaskSystem() {
 static void __cdecl
 lRunTask(LPVOID param) {
     TaskInfo *ti = (TaskInfo *)param;
-    
-    // Actually run the task. 
+
+    // Actually run the task.
     // FIXME: like the GCD implementation for OS X, this is passing bogus
     // values for the threadIndex and threadCount builtins, which in turn
     // will cause bugs in code that uses those.
@@ -488,7 +489,7 @@ static std::vector<TaskGroup *> activeTaskGroups;
 static sem_t *workerSemaphore;
 
 
-static inline int32_t 
+static inline int32_t
 lAtomicAdd(int32_t *v, int32_t delta) {
     int32_t origValue;
     __asm__ __volatile__("lock\n"
@@ -549,7 +550,7 @@ lTaskEntry(void *arg) {
             activeTaskGroups.pop_back();
             tg->inActiveList = false;
         }
-    
+
         if ((err = pthread_mutex_unlock(&taskSysMutex)) != 0) {
             fprintf(stderr, "Error from pthread_mutex_unlock: %s\n", strerror(err));
             exit(1);
@@ -684,7 +685,7 @@ TaskGroup::Sync() {
         // All of the tasks in this group aren't finished yet.  We'll try
         // to help out here since we don't have anything else to do...
 
-        DBG(fprintf(stderr, "while syncing %p - %d unfinished\n", tg, 
+        DBG(fprintf(stderr, "while syncing %p - %d unfinished\n", tg,
                     numUnfinishedTasks));
 
         //
@@ -745,7 +746,7 @@ TaskGroup::Sync() {
                 runtg->inActiveList = false;
             }
             myTask = runtg->GetTaskInfo(taskNumber);
-            DBG(fprintf(stderr, "running task %d from other group %p in sync\n", 
+            DBG(fprintf(stderr, "running task %d from other group %p in sync\n",
                         taskNumber, runtg));
         }
 
@@ -753,7 +754,7 @@ TaskGroup::Sync() {
             fprintf(stderr, "Error from pthread_mutex_unlock: %s\n", strerror(err));
             exit(1);
         }
-    
+
         //
         // Do work for _myTask_
         //
@@ -811,7 +812,7 @@ FreeTaskGroup(TaskGroup *tg) {
 ///////////////////////////////////////////////////////////////////////////
 
 // ispc expects these functions to have C linkage / not be mangled
-extern "C" { 
+extern "C" {
     void ISPCLaunch(void **handlePtr, void *f, void *data, int count);
     void *ISPCAlloc(void **handlePtr, int64_t size, int32_t alignment);
     void ISPCSync(void *handle);

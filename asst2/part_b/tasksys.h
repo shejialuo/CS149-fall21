@@ -1,6 +1,14 @@
 #ifndef _TASKSYS_H
 #define _TASKSYS_H
 
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <random>
+#include <unordered_set>
+#include <set>
+#include <unordered_map>
+#include <condition_variable>
 #include "itasksys.h"
 
 /*
@@ -59,15 +67,47 @@ class TaskSystemParallelThreadPoolSpinning: public ITaskSystem {
  * a thread pool. See definition of ITaskSystem in
  * itasksys.h for documentation of the ITaskSystem interface.
  */
+
+class Task {
+public:
+  TaskID id;
+  IRunnable* runnable;
+  int processing = 0;
+  int finished = 0;
+  int total_tasks;
+  size_t dependencies;
+  std::mutex task_mutex;
+  Task(TaskID id_, IRunnable* runnable_, int total_tasks_, size_t deps)
+    :id(id_), runnable(runnable_), total_tasks(total_tasks_), dependencies(deps) {}
+};
+
 class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
-    public:
-        TaskSystemParallelThreadPoolSleeping(int num_threads);
-        ~TaskSystemParallelThreadPoolSleeping();
-        const char* name();
-        void run(IRunnable* runnable, int num_total_tasks);
-        TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
-                                const std::vector<TaskID>& deps);
-        void sync();
+private:
+  bool terminate = false;
+  int _num = 0;
+  std::unordered_map<TaskID, Task*> finished {};
+  std::vector<Task*> ready {};
+  // std::unordered_set<Task*> ready{};
+  std::unordered_set<Task*> blocked {};
+  std::unordered_map<TaskID, std::unordered_set<Task*>> depencency {};
+  std::vector<std::thread> threads;
+  TaskID id = 0;
+  std::mutex queue_mutex;
+  std::condition_variable consumer;
+  std::condition_variable producer;
+  void start(int num_threads);
+  void threadLoop();
+  void deleteFinishedTask(Task* task, int index);
+  void moveBlockTaskToReady();
+  void signalSync();
+public:
+  TaskSystemParallelThreadPoolSleeping(int num_threads);
+  ~TaskSystemParallelThreadPoolSleeping();
+  const char* name();
+  void run(IRunnable* runnable, int num_total_tasks);
+  TaskID runAsyncWithDeps(IRunnable* runnable, int num_total_tasks,
+                          const std::vector<TaskID>& deps);
+  void sync();
 };
 
 #endif

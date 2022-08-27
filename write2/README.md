@@ -204,3 +204,8 @@ to achieve that. It is just consumer and producer problem.
 
 I wanna say sometimes spin is better than sleep. Because sleep would cause context switch,
 which may be inefficient when cpu speed is high.
+
+## Part B
+
+Well, you should see code in practice. It is complicated. I don't want
+to write.

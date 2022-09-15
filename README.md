@@ -17,3 +17,8 @@ For assignment 1, we need to install ISPC. It is easy to install in ArchLinux.
 ```sh
 sudo pacman -S ispc
 ```
+
+For assignment 2, we need nothing.
+
+For assignment 3, you could install cuda in ArchLinux. However, I pay money to
+rent a GPU VPS due to the reason that I have no NVIDIA GPU.

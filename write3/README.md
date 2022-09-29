@@ -125,3 +125,9 @@ Now, the result is illustrated by below.
 
 As you can see, we have passed some tests and the performance is not good at all. The reason why
 there are some failed tests is that the bytes exceed $2^{63}$, which would overflow.
+
+## Improvement
+
+This question is really hard. I have tried so many ways. However, I don't have enough time
+to finish the assignment. So if you want to find the solutions. I recommend the answer from
+[charliechenye](https://github.com/charliechenye/asst3). It is a really good answer.

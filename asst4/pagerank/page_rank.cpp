@@ -16,8 +16,7 @@
 // damping:     page-rank algorithm's damping parameter
 // convergence: page-rank algorithm's convergence threshold
 //
-void pageRank(Graph g, double* solution, double damping, double convergence)
-{
+void pageRank(Graph g, double* solution, double damping, double convergence) {
 
 
   // initialize vertex weights to uniform probability. Double
@@ -25,37 +24,82 @@ void pageRank(Graph g, double* solution, double damping, double convergence)
 
   int numNodes = num_nodes(g);
   double equal_prob = 1.0 / numNodes;
-  for (int i = 0; i < numNodes; ++i) {
-    solution[i] = equal_prob;
+  #pragma omp parallel
+  {
+    #pragma omp for
+    for (int i = 0; i < numNodes; ++i) {
+      solution[i] = equal_prob;
+    }
   }
-  
-  
-  /*
-     CS149 students: Implement the page rank algorithm here.  You
-     are expected to parallelize the algorithm using openMP.  Your
-     solution may need to allocate (and free) temporary arrays.
 
-     Basic page rank pseudocode is provided below to get you started:
+  double* tempArray = new double[g->num_nodes];
 
-     // initialization: see example code above
-     score_old[vi] = 1/numNodes;
+  bool converged = false;
+  while (!converged) {
+    #pragma omp parallel
+    {
+      #pragma omp for
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          tempArray[v] = 0.0;
+      }
+    }
 
-     while (!converged) {
+    #pragma omp parallel
+    {
+      #pragma omp for
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          for (const Vertex* iv = incoming_begin(g, v); iv != incoming_end(g, v); ++iv) {
+            tempArray[v] += solution[*iv] / static_cast<double>(outgoing_size(g, *iv));
+          }
+        }
+    }
 
-       // compute score_new[vi] for all nodes vi:
-       score_new[vi] = sum over all nodes vj reachable from incoming edges
-                          { score_old[vj] / number of edges leaving vj  }
-       score_new[vi] = (damping * score_new[vi]) + (1.0-damping) / numNodes;
+    #pragma omp parallel
+    {
+      #pragma omp for
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          tempArray[v] = tempArray[v] * damping + (1.0 - damping) / static_cast<double>(numNodes);
+        }
+    }
 
-       score_new[vi] += sum over all nodes v in graph with no outgoing edges
-                          { damping * score_old[v] / numNodes }
+    double t = 0.0;
+    #pragma omp parallel
+    {
+      #pragma omp for reduction(+: t)
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          if(outgoing_size(g, v) == 0) {
+              t += damping * solution[v] / static_cast<double>(numNodes);
+          }
+        }
+    }
 
-       // compute how much per-node scores have changed
-       // quit once algorithm has converged
 
-       global_diff = sum over all nodes vi { abs(score_new[vi] - score_old[vi]) };
-       converged = (global_diff < convergence)
-     }
+    #pragma omp parallel
+    {
+      #pragma omp for
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          tempArray[v] += t;
+        }
+    }
 
-   */
+    double globalDiff = 0.0;
+    #pragma omp parallel
+    {
+      #pragma omp for reduction(+: globalDiff)
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          globalDiff += abs(tempArray[v] - solution[v]);
+        }
+    }
+
+    #pragma omp parallel
+    {
+      #pragma omp for reduction(+: globalDiff)
+        for (Vertex v = 0; v < g->num_nodes; ++v) {
+          solution[v] = tempArray[v];
+        }
+    }
+    converged = globalDiff < convergence;
+  }
+
+  delete[] tempArray;
 }

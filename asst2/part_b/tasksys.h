@@ -83,21 +83,21 @@ public:
 
 class TaskSystemParallelThreadPoolSleeping: public ITaskSystem {
 private:
-  bool terminate = false;
-  int _num = 0;
-  std::unordered_map<TaskID, Task*> finished {};
-  std::vector<Task*> ready {};
-  // std::unordered_set<Task*> ready{};
-  std::unordered_set<Task*> blocked {};
-  std::unordered_map<TaskID, std::unordered_set<Task*>> depencency {};
+  bool terminate = false; // To indicate whether to stop the thread pool
+  int _num_threads = 0; // To indicate how many threads
+  int sleepThreadNum = 0; // The number of thread which is sleeping
+  std::unordered_map<TaskID, Task*> finished {}; // To record the finished task
+  std::vector<Task*> ready {}; // The task is ready to be processed
+  std::unordered_set<Task*> blocked {}; // The task is blocked
   std::vector<std::thread> threads;
+  std::unordered_map<TaskID, std::unordered_set<Task*>> depencency {}; // The depencency information
   TaskID id = 0;
   std::mutex queue_mutex;
   std::condition_variable consumer;
   std::condition_variable producer;
   void start(int num_threads);
-  void threadLoop();
-  void deleteFinishedTask(Task* task, int index);
+  void threadLoop(int index);
+  void deleteFinishedTask(Task* task);
   void moveBlockTaskToReady();
   void signalSync();
 public:

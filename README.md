@@ -28,3 +28,10 @@ For assignment 4, you could install `openmp` package in ArchLinux.
 ```sh
 sudo pacman -S openmp
 ```
+
+For extra assignment, you still need ispc and also you need to use Intel math
+library to compare the efficiency if you like.
+
+```sh
+sudo pacman -S intel-oneapi-mkl
+```

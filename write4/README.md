@@ -68,3 +68,20 @@ void pageRank(Graph g, double* solution, double damping, double convergence) {
 Now we can use OpenMP to parallelize the code above.
 
 ![Page rank score](./assets/Page_rank_score.png)
+
+## Part 2
+
+### Top Down BFS
+
+It is easy to parallelize the code. For each frontier, we handle it
+concurrently. And we simply uses `#pragma omp critical` to protect
+the shared data `new_frontier`. However, it is too slow. So the grade
+is slow.
+
+![top_down_bfs_critical](./assets/top_down_bfs_critical.png)
+
+So we should avoid using locks. If we want to avoid locks, we need to
+store the state like global count. However, there are some details you
+should look at the code.
+
+![top_down_bfs_correct](./assets/top_down_bfs_correct_way.png)

@@ -205,3 +205,16 @@ The last tip is what we could do. So we could use `schedule(dynamic, chunk_size)
 improve efficiency.
 
 ![bottom_up_second](./assets/bottom_up_second.png)
+
+### Hybrid BFS
+
+The pairing of the top-down approach with the bottom-up approach is complementary, since
+when the frontier is largest, the bottom-up approach will be at its worst, and vice versa.
+
+So the idea is simple. Uses the Top Down BFS for steps when the frontier is large. We begin
+each search with the Top Down BFS and continue until the frontier becomes too large, at which
+point we switch to the Bottom Up BFS.
+
+You should see the above paper for details.
+
+![hybrid_way](./assets/hybrid_way.png)

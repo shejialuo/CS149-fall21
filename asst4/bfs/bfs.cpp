@@ -12,6 +12,8 @@
 #define ROOT_NODE_ID 0
 #define NOT_VISITED_MARKER -1
 
+#define MACHINE_CACHE_LINE_SIZE 64
+
 void vertex_set_clear(vertex_set* list) {
     list->count = 0;
 }
@@ -128,19 +130,75 @@ void bfs_top_down(Graph graph, solution* sol) {
     }
 }
 
+uint bottom_up_step(Graph g, bool* frontier, bool* new_frontier, int* distances, int chunk_size) {
+    uint count = 0;
+    #pragma omp parallel for reduction(+: count) schedule(dynamic, chunk_size)
+    for (int i = 0; i < g->num_nodes; ++i) {
+        if (distances[i] == NOT_VISITED_MARKER) {
+            for (const Vertex* incoming = incoming_begin(g, i); incoming != incoming_end(g, i); ++incoming) {
+                if (frontier[*incoming]) {
+                    distances[i] = distances[*incoming] + 1;
+                    new_frontier[i] = true;
+                    count += 1;
+                    break;
+                }
+            }
+        }
+    }
+    return count;
+}
+
 void bfs_bottom_up(Graph graph, solution* sol)
 {
-    // CS149 students:
-    //
-    // You will need to implement the "bottom up" BFS here as
-    // described in the handout.
-    //
-    // As a result of your code's execution, sol.distances should be
-    // correctly populated for all nodes in the graph.
-    //
-    // As was done in the top-down case, you may wish to organize your
-    // code by creating subroutine bottom_up_step() that is called in
-    // each step of the BFS process.
+
+    // We need to find the cache-line size
+    int chunk_size = MACHINE_CACHE_LINE_SIZE * 16;
+
+    // We need to find the chunk_size to fit into the cache line
+    while (graph->num_nodes < omp_get_max_threads() * chunk_size) {
+        chunk_size /= 2;
+    }
+
+
+    bool *frontier = new bool[graph->num_nodes];
+    bool *new_frontier = new bool[graph->num_nodes];
+
+    bool *current = frontier;
+    bool *next = new_frontier;
+
+    #pragma omp parallel for
+    for (int i = 0; i < graph->num_nodes; ++i) {
+        current[i] = false;
+    }
+
+    // Set for the root node
+    current[ROOT_NODE_ID] = true;
+
+    #pragma omp parallel for
+    // initialize all nodes to NOT_VISITED
+    for (int i=0; i<graph->num_nodes; i++)
+        sol->distances[i] = NOT_VISITED_MARKER;
+    sol->distances[ROOT_NODE_ID] = 0;
+
+    uint count = 1;
+
+    while (count != 0) {
+
+        #pragma omp parallel for
+        for (int i = 0; i < graph->num_nodes; ++i) {
+            next[i] = false;
+        }
+
+        count = bottom_up_step(graph, current, next, sol->distances, chunk_size);
+
+        // Swap the pointer
+        bool * temp = next;
+        next = current;
+        current = temp;
+
+    }
+    delete[] frontier;
+    delete[] new_frontier;
 }
 
 void bfs_hybrid(Graph graph, solution* sol)

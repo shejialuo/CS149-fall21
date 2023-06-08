@@ -115,7 +115,7 @@ And I record some information here.
 
 Well, at now the bottom-up way is clear. For every step, we just traverse all the vertices.
 And we have the current `frontier` information. From Top Down BFS, we need to check for
-every vertex's neighbor to add it to the `next_frontier`. In the Down Top BFS, we just
+every vertex's neighbor to add it to the `next_frontier`. In the Bottom Up BFS, we just
 find whether the `child` is the ancestor of the vertices in the `frontier`.
 
 Now we can code.
@@ -191,9 +191,6 @@ However, the result is illustrated below.
 As you can see, I cannot get the full grades. I am wondering the reason.
 You could look at this [article](http://www.nic.uoregon.edu/~khuck/ts/acumem-report/manual_html/ch06s07.html).
 
-> False sharing occurs when they repeatedly update their respective data ub
-> such a way that the cache line migrates back and forth between the two threads' caches/
-
 And the article provides some tips:
 
 + Avoid writing to global data that is accessed from multiple threads.
@@ -209,7 +206,8 @@ improve efficiency.
 ### Hybrid BFS
 
 The pairing of the top-down approach with the bottom-up approach is complementary, since
-when the frontier is largest, the bottom-up approach will be at its worst, and vice versa.
+when the frontier is largest, the bottom-up approach will be at its best
+whereas the top-down approach will be at its worst, and vice versa.
 
 So the idea is simple. Uses the Top Down BFS for steps when the frontier is large. We begin
 each search with the Top Down BFS and continue until the frontier becomes too large, at which

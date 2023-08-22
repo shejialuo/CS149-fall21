@@ -241,8 +241,8 @@ void TaskSystemParallelThreadPoolSleeping::deleteFinishedTask(Task* task) {
   finished.insert({ready[i]->id ,ready[i]});
   ready.erase(ready.begin() + i);
 
-  if(depencency.count(task->id)) {
-    for(auto t: depencency[task->id]) {
+  if(dependency.count(task->id)) {
+    for(auto t: dependency[task->id]) {
       t->dependencies--;
     }
   }
@@ -301,10 +301,10 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
 
     // Record dependency information for later processing
     for (TaskID dep : deps) {
-      if (depencency.count(dep)) {
-        depencency[dep].insert(task);
+      if (dependency.count(dep)) {
+        dependency[dep].insert(task);
       } else {
-        depencency[dep] = std::unordered_set<Task*>{task};
+        dependency[dep] = std::unordered_set<Task*>{task};
       }
     }
     // We should notify the producer to continue processing
@@ -314,8 +314,8 @@ TaskID TaskSystemParallelThreadPoolSleeping::runAsyncWithDeps(IRunnable* runnabl
 }
 
 /**
- * This function is providedto the user for waiting for
- * all tasks finished. We can just use a singel condition
+ * This function is provided to the user for waiting for
+ * all tasks finished. We can just use a single condition
  * variable to achieve the functionality
  */
 void TaskSystemParallelThreadPoolSleeping::sync() {

@@ -90,7 +90,7 @@ private:
   std::vector<Task*> ready {}; // The task is ready to be processed
   std::unordered_set<Task*> blocked {}; // The task is blocked
   std::vector<std::thread> threads;
-  std::unordered_map<TaskID, std::unordered_set<Task*>> depencency {}; // The depencency information
+  std::unordered_map<TaskID, std::unordered_set<Task*>> dependency {}; // The dependency information
   TaskID id = 0;
   std::mutex queue_mutex;
   std::condition_variable consumer;

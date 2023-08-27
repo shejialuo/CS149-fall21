@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     const uint64_t TOTAL_FLOPS = 2*m*((uint64_t) n*k);
 
     double alpha, beta;
-    alpha = 1.0; beta = 1.0;
+    alpha = 0.8; beta = 0.5;
 
     // Prepare matrices
     double *A1, *B1, *C1; // for MKL library implementation
@@ -115,13 +115,13 @@ int main(int argc, char *argv[]) {
     double totalsqerr_user = 0; // keep track of total squared error over all iterations
 
     printf("Running each implementation %d times...\n", N_ITERS);
-    
+
     for (int i = 0; i < N_ITERS; ++i) {
         double startTime, endTime;
 
         // Fill input matrices with random data
         fillMatrices(m,n,k,&A1,&B1,&C1);
-        
+
         // Make a copy of the matrices
         memcpy(A2,A1,m*k*sizeof(double));
         memcpy(B2,B1,k*n*sizeof(double));
@@ -135,14 +135,14 @@ int main(int argc, char *argv[]) {
 #if MKL_INSTALLED
         printf("Running Intel MKL... ");
         startTime = CycleTimer::currentSeconds();
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                     m, n, k, alpha, A1, k, B1, n, beta, C1, n);
         endTime = CycleTimer::currentSeconds();
         printf("%.2lfms\n", (endTime - startTime)*1000);
         minMKL = std::min(minMKL, endTime - startTime);
 #endif
 
-        // Run your matrix multiply implementation. 
+        // Run your matrix multiply implementation.
         printf("Running student GEMM... ");
         startTime = CycleTimer::currentSeconds();
         //ispc::gemm_ispc(m, n, k, A2, B2, C2, alpha, beta);
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
         printf("%.2lfms\n", (endTime - startTime)*1000);
         minGEMM = std::min(minGEMM, endTime - startTime);
 
-        // Run reference ISPC matrix multiply implementation. 
+        // Run reference ISPC matrix multiply implementation.
         printf("Running ref ispc GEMM... ");
         startTime = CycleTimer::currentSeconds();
         ispc::gemm_ispc_ref(m, n, k, A3, B3, C3, alpha, beta);

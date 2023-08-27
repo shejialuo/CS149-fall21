@@ -38,6 +38,5 @@ sudo pacman -S intel-oneapi-mkl
 
 ---
 
-At this time, except the extra assignment. I have already finished all the parts
-except the matrix multiplication. Well, in this whole series, I have learned a lot.
-Thanks CS149 team for all the efforts!
+At this time, I have already finished all the parts. Well, in this whole series, I have
+learned a lot. Thanks CS149 team for all the efforts!

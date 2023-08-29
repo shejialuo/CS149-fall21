@@ -1,4 +1,4 @@
-CXX=g++ -m64 -fPIE
+CXX=g++ -fopenmp -m64 -fPIE
 CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
 LDLIBS=-lm $(TASKSYS_LIB)
 ISPC=ispc
@@ -40,7 +40,7 @@ dirs:
 clean:
 		/bin/rm -rf $(OBJDIR) *.ppm *~ $(APP_NAME)
 
-OBJS=$(OBJDIR)/main.o $(OBJDIR)/gemm.o $(OBJDIR)/gemm_ispc.o $(TASKSYS_OBJ) 
+OBJS=$(OBJDIR)/main.o $(OBJDIR)/gemm.o $(OBJDIR)/gemm_ispc.o $(TASKSYS_OBJ)
 
 $(APP_NAME): dirs $(OBJS)
 		$(CXX) $(CXXFLAGS) -o $@ $(OBJS) ref_gemm_ispc.a $(LDLIBS)

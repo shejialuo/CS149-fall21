@@ -72,8 +72,8 @@ public:
    * @brief Apply the C = beta C, it should be calculated at first.
    *
    */
-  static void addMatrix(int mBlock, int nBlock, int n, Point2D &c, double *C,
-                        double beta) {
+  static void scalarMultiplication(int mBlock, int nBlock, int n, Point2D &c,
+                                   double *C, double beta) {
     for (int i = 0; i < mBlock; i++) {
       for (int j = 0; j < nBlock; j++) {
         C[(i + c.i) * n + (j + c.j)] = beta * C[(i + c.i) * n + (j + c.j)];
@@ -94,7 +94,7 @@ public:
   static void matrixMultiplicationBlock(int mBlock, int nBlock, int kBlock,
                                         int n, int k, Point2D &a, Point2D &b,
                                         Point2D &c, double *A, double *B,
-                                        double *C, double alpha, double beta) {
+                                        double *C, double alpha) {
 
     for (int i = 0; i < mBlock; i++) {
       for (int j = 0; j < nBlock; j++) {
@@ -124,13 +124,13 @@ public:
         b.j = j;
         c.j = j;
         int nBlock = j + size < n ? size : n - j;
-        addMatrix(mBlock, nBlock, n, c, C, beta);
+        scalarMultiplication(mBlock, nBlock, n, c, C, beta);
         for (int kk = 0; kk < k; kk += size) {
           a.j = kk;
           b.i = kk;
           int kBlock = kk + size < k ? size : k - kk;
           matrixMultiplicationBlock(mBlock, nBlock, kBlock, n, k, a, b, c, A, B,
-                                    C, alpha, beta);
+                                    C, alpha);
         }
       }
     }
@@ -150,8 +150,8 @@ public:
    */
   GemmBlockWithMemoryLayoutChange() = delete;
 
-  static void addMatrix(int mBlock, int nBlock, int n, Point2D &c, double *C,
-                        double beta) {
+  static void scalarMultiplication(int mBlock, int nBlock, int n, Point2D &c,
+                                   double *C, double beta) {
     for (int i = 0; i < mBlock; i++) {
       for (int j = 0; j < nBlock; j++) {
         C[(i + c.i) * n + (j + c.j)] = beta * C[(i + c.i) * n + (j + c.j)];
@@ -162,7 +162,7 @@ public:
   static void matrixMultiplicationBlock(int mBlock, int nBlock, int kBlock,
                                         int n, int k, Point2D &a, Point2D &b,
                                         Point2D &c, double *A, double *B,
-                                        double *C, double alpha, double beta) {
+                                        double *C, double alpha) {
 
     for (int i = 0; i < mBlock; i++) {
       for (int j = 0; j < nBlock; j++) {
@@ -188,13 +188,13 @@ public:
         b.i = j;
         c.j = j;
         int nBlock = j + size < n ? size : n - j;
-        addMatrix(mBlock, nBlock, n, c, C, beta);
+        scalarMultiplication(mBlock, nBlock, n, c, C, beta);
         for (int kk = 0; kk < k; kk += size) {
           a.j = kk;
           b.j = kk;
           int kBlock = kk + size < k ? size : k - kk;
           matrixMultiplicationBlock(mBlock, nBlock, kBlock, n, k, a, b, c, A, B,
-                                    C, alpha, beta);
+                                    C, alpha);
         }
       }
     }
@@ -217,6 +217,136 @@ public:
   }
 };
 
+class GemmBlockWithThreeCacheLevel {
+public:
+  /**
+   * @brief Disable constructing this class
+   *
+   */
+  GemmBlockWithThreeCacheLevel() = delete;
+
+  static void matrixMultiplicationBlock(int mBlock, int nBlock, int kBlock,
+                                        int n, int k, Point2D &a, Point2D &b,
+                                        Point2D &c, double *A, double *B,
+                                        double *C, double alpha) {
+
+    for (int i = 0; i < mBlock; i++) {
+      for (int j = 0; j < nBlock; j++) {
+        double inner_pod = 0;
+        for (int kk = 0; kk < kBlock; kk++) {
+          inner_pod +=
+              A[(i + a.i) * k + (kk + a.j)] * B[(j + b.i) * k + (kk + b.j)];
+        }
+        C[(i + c.i) * n + (j + c.j)] += alpha * inner_pod;
+      }
+    }
+  }
+
+  /**
+   * @brief Use five loop tp calculate the matrix-matrix multiplication, for
+   * simplicity here, I only implement C = alpha AB.
+   *
+   */
+  static void gemmUsingBlock(int m, int n, int k, double *A, double *B,
+                             double *C, double alpha, double beta) {
+
+    const int sizeN = 4096;
+    const int sizeK = 256;
+    const int sizeM = 96;
+
+    Point2D a{}, b{}, c{}, ra{}, rb{}, rc{};
+
+    const int rSizeN = 4;
+    const int rSizeM = 8;
+
+    // We need to create pack A and pack B. It's a bad idea to allocate
+    // memory in the loop.
+    double *packedA = new double[sizeM * sizeK];
+    double *packedB = new double[sizeN * sizeK];
+
+    for (int j = 0; j < n; j += sizeN) {
+      // In this loop, we only handle for the matrix B, it would
+      // be split up by `sizeN` for the col.
+      b.j = j;
+      c.j = j;
+      int nBlock = j + sizeN < n ? sizeN : n - j;
+
+      for (int kk = 0; kk < k; kk += sizeK) {
+        // In this loop, we handle for the matrix A and matrix B.
+        // For the matrix A it would be split up by `sizeK` for the col
+        // For the matrix B it would be split up by `sizeK` for the row
+        a.j = kk;
+        b.i = kk;
+        int kBlock = kk + sizeK < k ? sizeK : k - kk;
+
+        // At here, we should pack the B into a consecutive memory, in
+        // order to improve the cache hit rate and avoid TLB miss. We make
+        // `packedB` into the L3 cache, So the L3 size should be greater
+        // than the `sizeN * sizeK`. So in the following `for` loop all
+        // the access to the `packedB` would gain great efficiency. And we
+        // will convert the row-major to the col-major.
+
+        for (int j_ = 0; j_ < nBlock; j_++) {
+          for (int i_ = 0; i_ < kBlock; i_++) {
+            packedB[j_ * sizeK + i_] = B[(b.i + i_) * n + (b.j + j_)];
+          }
+        }
+
+        for (int i = 0; i < m; i += sizeM) {
+          // In this loop, we handle for the matrix A, it would be split
+          // up by the `sizeI` for the row.
+          a.i = i;
+          c.i = i;
+          int mBlock = i + sizeM < m ? sizeM : m - i;
+
+          // At here, we should pack the A into a consecutive memory, in
+          // order to improve the cache hit rate and avoid TLB miss. We
+          // make `packedA` into the L2 cache, so the L2 cache must be
+          // greater than `sizeM * sizeK`. So the following `for` loop
+          // for accessing to the `packedA` would get great efficiency.
+          for (int i_ = 0; i_ < mBlock; i_++) {
+            for (int j_ = 0; j_ < kBlock; j_++) {
+              packedA[i_ * sizeK + j_] = A[(a.i + i_) * k + (a.j + j_)];
+            }
+          }
+
+          // Here, we already split the matrix A and matrix B into the block.
+          // However, we need to split again just like the above, this would
+          // be super easy.
+          for (int jr = 0; jr < nBlock; jr += rSizeN) {
+            int rNBlock = jr + rSizeN < nBlock ? rSizeN : nBlock - jr;
+            rb.i = jr;
+            rc.j = jr + c.j;
+
+            for (int ri = 0; ri < mBlock; ri += rSizeM) {
+              int rMBlock = ri + rSizeM < mBlock ? rSizeM : mBlock - ri;
+              ra.i = ri;
+              rc.i = ri + c.i;
+
+              for (int internalK = 0; internalK < kBlock; internalK++) {
+                ra.j = internalK;
+                rb.j = internalK;
+
+                matrixMultiplicationBlock(rMBlock, rNBlock, 1, n, sizeK, ra, rb,
+                                          rc, packedA, packedB, C, alpha);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    delete[] packedA;
+    delete[] packedB;
+  }
+
+  static void gemm(int m, int n, int k, double *A, double *B, double *C,
+                   double alpha, double beta) {
+
+    gemmUsingBlock(m, n, k, A, B, C, alpha, beta);
+  }
+};
+
 void gemm(int m, int n, int k, double *A, double *B, double *C, double alpha,
           double beta) {
   // Brute Force
@@ -226,5 +356,8 @@ void gemm(int m, int n, int k, double *A, double *B, double *C, double alpha,
   // GemmBlock::gemm(m, n, k, A, B, C, alpha, beta);
 
   // SubMatrix Multiplication with B memory layout change
-  GemmBlockWithMemoryLayoutChange::gemm(m, n, k, A, B, C, alpha, beta);
+  // GemmBlockWithMemoryLayoutChange::gemm(m, n, k, A, B, C, alpha, beta);
+
+
+  GemmBlockWithThreeCacheLevel::gemm(m, n, k, A, B, C, alpha, beta);
 }

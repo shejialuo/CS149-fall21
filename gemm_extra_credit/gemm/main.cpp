@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     const uint64_t TOTAL_FLOPS = 2*m*((uint64_t) n*k);
 
     double alpha, beta;
-    alpha = 0.8; beta = 0.5;
+    alpha = 0.8; beta = 1.0;
 
     // Prepare matrices
     double *A1, *B1, *C1; // for MKL library implementation
